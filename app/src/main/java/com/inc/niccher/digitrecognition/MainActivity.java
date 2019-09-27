@@ -8,7 +8,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-
 import com.inc.niccher.digitrecognition.views.DrawModel;
 import com.inc.niccher.digitrecognition.views.DrawView;
 
