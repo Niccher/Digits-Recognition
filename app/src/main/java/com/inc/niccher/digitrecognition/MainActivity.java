@@ -8,8 +8,14 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.inc.niccher.digitrecognition.models.Classification;
+import com.inc.niccher.digitrecognition.models.Classifier;
+import com.inc.niccher.digitrecognition.models.TensorFlowClassifier;
 import com.inc.niccher.digitrecognition.views.DrawModel;
 import com.inc.niccher.digitrecognition.views.DrawView;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends Activity implements View.OnClickListener, View.OnTouchListener {
@@ -18,6 +24,8 @@ public class MainActivity extends Activity implements View.OnClickListener, View
 
     private Button clearBtn, classBtn;
     private TextView resText;
+
+    private List<Classifier> mClassifiers = new ArrayList<>();
 
     // views
     private DrawModel drawModel;
@@ -49,21 +57,17 @@ public class MainActivity extends Activity implements View.OnClickListener, View
         classBtn.setOnClickListener(this);
 
         resText = (TextView) findViewById(R.id.tfRes);
+
+        ModelInfer();
     }
 
-    //the activity lifecycle
-
     @Override
-    //OnResume() is called when the user resumes his Activity which he left a while ago,
-    // //say he presses home button and then comes back to app, onResume() is called.
     protected void onResume() {
         drawView.onResume();
         super.onResume();
     }
 
     @Override
-    //OnPause() is called when the user receives an event like a call or a text message,
-    // //when onPause() is called the Activity may be partially or completely hidden.
     protected void onPause() {
         drawView.onPause();
         super.onPause();
@@ -73,33 +77,43 @@ public class MainActivity extends Activity implements View.OnClickListener, View
     public void onClick(View view) {
         //when the user clicks something
         if (view.getId() == R.id.btn_clear) {
-            //if its the clear button
-            //clear the drawing
             drawModel.clear();
             drawView.reset();
             drawView.invalidate();
-            //empty the text view
             resText.setText("");
         } else if (view.getId() == R.id.btn_class) {
             //if the user clicks the classify button
             //get the pixel data and store it in an array
             float pixels[] = drawView.getPixelData();
 
+            //init an empty string to fill with the classification output
+            String text = "";
+            //for each classifier in our array
+            for (Classifier classifier : mClassifiers) {
+                //perform classification on the image
+                final Classification res = classifier.recognize(pixels);
+                //if it can't classify, output a question mark
+                if (res.getLabel() == null) {
+                    text += classifier.name() + ": ?\n";
+                } else {
+                    //else output its name
+                    text += String.format("%s: %s, %f\n", classifier.name(), res.getLabel(),
+                            res.getConf());
+                }
+            }
+            resText.setText(text);
         }
     }
 
     @Override
-    //this method detects which direction a user is moving
-    //their finger and draws a line accordingly in that
-    //direction
+    //this method detects which direction a user is moving their
+    // finger and draws a line accordingly in that direction
     public boolean onTouch(View v, MotionEvent event) {
         //get the action and store it as an int
         int action = event.getAction() & MotionEvent.ACTION_MASK;
         //actions have predefined ints, lets match
-        //to detect, if the user has touched, which direction the users finger is
-        //moving, and if they've stopped moving
+        //to detect, if the user has touched, which direction the users finger is moving, and if they've stopped moving
 
-        //if touched
         if (action == MotionEvent.ACTION_DOWN) {
             //begin drawing line
             processTouchDown(event);
@@ -115,8 +129,6 @@ public class MainActivity extends Activity implements View.OnClickListener, View
         }
         return false;
     }
-
-    //draw line down
 
     private void processTouchDown(MotionEvent event) {
         //calculate the x, y coordinates where the user has touched
@@ -149,5 +161,31 @@ public class MainActivity extends Activity implements View.OnClickListener, View
 
     private void processTouchUp() {
         drawModel.endLine();
+    }
+
+    private void ModelInfer() {
+        //The Runnable interface is another way in which you can implement multi-threading other than extending the
+        // //Thread class due to the fact that Java allows you to extend only one class. Runnable is just an interface,
+        // //which provides the method run.
+        // //Threads are implementations and use Runnable to call the method run().
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    //add 2 classifiers to our classifier arraylist the tensorflow classifier and the keras classifier
+                    mClassifiers.add(
+                            TensorFlowClassifier.create(getAssets(), "TensorFlow",
+                                    "opt_mnist_convnet-tf.pb", "labels.txt", PIXEL_WIDTH,
+                                    "input", "output", true));
+                    mClassifiers.add(
+                            TensorFlowClassifier.create(getAssets(), "Keras",
+                                    "opt_mnist_convnet-keras.pb", "labels.txt", PIXEL_WIDTH,
+                                    "conv2d_1_input", "dense_2/Softmax", false));
+                } catch (final Exception e) {
+                    //inaccessible model files
+                    throw new RuntimeException("Error initializing classifiers!", e);
+                }
+            }
+        }).start();
     }
 }
