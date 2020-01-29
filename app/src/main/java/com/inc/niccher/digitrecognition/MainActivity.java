@@ -3,6 +3,7 @@ package com.inc.niccher.digitrecognition;
 import android.app.Activity;
 import android.graphics.PointF;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +16,7 @@ import com.inc.niccher.digitrecognition.views.DrawModel;
 import com.inc.niccher.digitrecognition.views.DrawView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -23,7 +25,7 @@ public class MainActivity extends Activity implements View.OnClickListener, View
     private static final int PIXEL_WIDTH = 28;
 
     private Button clearBtn, classBtn;
-    private TextView resText;
+    private TextView resText,restflab,reskrlab,restfprob,reskrprob,restf,reskr;
 
     private List<Classifier> mClassifiers = new ArrayList<>();
 
@@ -56,7 +58,16 @@ public class MainActivity extends Activity implements View.OnClickListener, View
         classBtn = (Button) findViewById(R.id.btn_class);
         classBtn.setOnClickListener(this);
 
-        resText = (TextView) findViewById(R.id.tfRes);
+        //resText = (TextView) findViewById(R.id.tfRes);
+
+        restf = (TextView) findViewById(R.id.btn_tf);
+        reskr = (TextView) findViewById(R.id.btn_kr);
+
+        restflab = (TextView) findViewById(R.id.btn_labtf);
+        reskrlab = (TextView) findViewById(R.id.btn_labkr);
+
+        restfprob = (TextView) findViewById(R.id.btn_probtf);
+        reskrprob = (TextView) findViewById(R.id.btn_probkr);
 
         ModelInfer();
     }
@@ -80,29 +91,98 @@ public class MainActivity extends Activity implements View.OnClickListener, View
             drawModel.clear();
             drawView.reset();
             drawView.invalidate();
-            resText.setText("");
+
+            restflab.setText("");
+            reskrlab.setText("");
+            restfprob.setText("");
+            reskrprob.setText("");
+            restf.setText("");
+            reskr.setText("");
+            //resText.setText("");
         } else if (view.getId() == R.id.btn_class) {
             //if the user clicks the classify button
             //get the pixel data and store it in an array
             float pixels[] = drawView.getPixelData();
 
             //init an empty string to fill with the classification output
-            String text = "";
+            String labl="", prob="",model="",answer = "";
             //for each classifier in our array
             for (Classifier classifier : mClassifiers) {
                 //perform classification on the image
                 final Classification res = classifier.recognize(pixels);
                 //if it can't classify, output a question mark
                 if (res.getLabel() == null) {
-                    text += classifier.name() + ": ?\n";
+                    //text += classifier.name() + ": ?\n";
                 } else {
-                    //else output its name
-                    text += String.format("%s: %s, %f\n", classifier.name(), res.getLabel(),
-                            res.getConf());
+                    /*model=String.format("%s",classifier.name());
+                    labl=String.format("%s",res.getLabel());
+                    prob=String.format("%f",res.getConf());*/
+                    answer+= String.format("%s: %s, %f#", classifier.name(), res.getLabel(), res.getConf());
+                    Log.e("Answer ******", String.valueOf(answer) );
+                    //answer="";
                 }
             }
-            resText.setText(text);
+
+            Splitt(answer);
+
+            restf.setText("Tensorflow");
+            reskr.setText("Keras");
+
         }
+    }
+
+    private void Splitt(String CutMe){
+        int iend = CutMe.indexOf("#");
+
+        String ans1,ans2;
+        if (iend != -1) {
+            ans1= CutMe.substring(0 , iend);
+            System.out.println(ans1);
+
+            ans2= CutMe.substring(iend+1 , CutMe.length());
+            System.out.println(ans2);
+
+            Log.e("Answer 1", String.valueOf(ans1) );
+            Log.e("Answer 2", String.valueOf(ans2) );
+
+            String remov1="Tensorflow: ";
+            String remov2=" ";
+            String remov3="Keras: ";
+            String remov4="#";
+
+            String answer1=(ans1.replace(remov1,"").replace(remov2, ""));
+            String real_label1,real_prob1;
+
+            String answer2=(ans2.replace(remov3,"").replace(remov2, "").replace(remov4, ""));
+            String real_label2,real_prob2;
+
+            Log.e("Trimmed 1", String.valueOf(answer1) );
+            Log.e("Trimmed 2", String.valueOf(answer2) );
+
+
+            int iend1=answer1.indexOf(",");
+            int iend2=answer2.indexOf(",");
+            float percentme;
+
+            if (iend1 != -1) {
+                real_label1= answer1.substring(0 , iend2);
+                restflab.setText(real_label1);
+
+                real_prob1= answer1.substring(iend2+1 , answer1.length());
+                percentme=(Float.parseFloat(real_prob1)*100);
+                restfprob.setText(String.valueOf(percentme));
+            }
+
+            if (iend2 != -1) {
+                real_label2= answer2.substring(0 , iend1);
+                reskrlab.setText(real_label2);
+
+                real_prob2= answer2.substring(iend1+1 , answer2.length());
+                percentme=(Float.parseFloat(real_prob2)*100);
+                reskrprob.setText(String.valueOf(percentme));
+            }
+        }
+
     }
 
     @Override
@@ -174,7 +254,7 @@ public class MainActivity extends Activity implements View.OnClickListener, View
                 try {
                     //add 2 classifiers to our classifier arraylist the tensorflow classifier and the keras classifier
                     mClassifiers.add(
-                            TensorFlowClassifier.create(getAssets(), "TensorFlow",
+                            TensorFlowClassifier.create(getAssets(), "Tensorflow",
                                     "opt_mnist_convnet-tf.pb", "labels.txt", PIXEL_WIDTH,
                                     "input", "output", true));
                     mClassifiers.add(
